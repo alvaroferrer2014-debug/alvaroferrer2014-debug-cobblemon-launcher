@@ -21,11 +21,13 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
 
       - name: Build JAR
         run: gradle.bat clean jar
 
-      - name: Create Windows EXE
+      - name: Create Windows launcher
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
