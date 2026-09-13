@@ -8,15 +8,22 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
-/** Handles the basic files needed by the launcher without embedding binary assets. */
+/** Downloads the base files for a Fabric 1.21.1 Cobblemon profile. */
 final class LauncherService {
     static final String MINECRAFT_VERSION = "1.21.1";
-    static final String FABRIC_INSTALLER_URL =
+    static final String FABRIC_LOADER_VERSION = "0.19.4";
+    static final String COBBLEMON_VERSION = "1.7.3";
+    static final String FABRIC_API_VERSION = "0.116.15+1.21.1";
+
+    private static final String FABRIC_INSTALLER_URL =
             "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.3/fabric-installer-1.0.3.jar";
-    static final String FABRIC_API_URL =
+    private static final String FABRIC_API_URL =
             "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.116.15+1.21.1/fabric-api-0.116.15+1.21.1.jar";
+    private static final String COBBLEMON_URL =
+            "https://cdn.modrinth.com/data/MdwFAVRL/versions/kF7CvxTo/cobblemon-fabric-1.7.3+1.21.1.jar";
 
     private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
 
@@ -27,23 +34,22 @@ final class LauncherService {
         Files.createDirectories(gameDir.resolve("launcher"));
 
         progress.update("Comprobando Java 21…");
-        if (!javaVersionIs21OrNewer()) {
+        if (Runtime.version().feature() < 21) {
             throw new IOException("LaucherCobblemon necesita Java 21 o superior.");
         }
 
         progress.update("Descargando instalador de Fabric…");
-        Path installer = gameDir.resolve("launcher/fabric-installer.jar");
-        downloadIfMissing(FABRIC_INSTALLER_URL, installer);
+        downloadIfMissing(FABRIC_INSTALLER_URL, gameDir.resolve("launcher/fabric-installer.jar"));
 
-        progress.update("Descargando Fabric API…");
+        progress.update("Descargando Fabric API " + FABRIC_API_VERSION + "…");
         downloadIfMissing(FABRIC_API_URL,
-                gameDir.resolve("mods/fabric-api-0.116.15+1.21.1.jar"));
+                gameDir.resolve("mods/fabric-api-" + FABRIC_API_VERSION + ".jar"));
 
-        progress.update("Preparación base completada.");
-    }
+        progress.update("Descargando Cobblemon " + COBBLEMON_VERSION + "…");
+        downloadIfMissing(COBBLEMON_URL,
+                gameDir.resolve("mods/cobblemon-fabric-" + COBBLEMON_VERSION + "+1.21.1.jar"));
 
-    private boolean javaVersionIs21OrNewer() {
-        return Runtime.version().feature() >= 21;
+        progress.update("Base de Cobblemon preparada.");
     }
 
     private void downloadIfMissing(String url, Path target) throws IOException, InterruptedException {
@@ -55,9 +61,9 @@ final class LauncherService {
         }
         Path temp = target.resolveSibling(target.getFileName() + ".part");
         try (InputStream input = response.body()) {
-            Files.copy(input, temp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(input, temp, StandardCopyOption.REPLACE_EXISTING);
         }
-        Files.move(temp, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
     }
 
     @FunctionalInterface
