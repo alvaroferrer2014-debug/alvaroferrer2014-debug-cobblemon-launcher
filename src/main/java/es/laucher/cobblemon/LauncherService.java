@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
-/** Downloads the base files for a Fabric 1.21.1 Cobblemon profile. */
+/** Downloads and installs the base files for a Fabric 1.21.1 Cobblemon profile. */
 final class LauncherService {
     static final String MINECRAFT_VERSION = "1.21.1";
     static final String FABRIC_LOADER_VERSION = "0.19.4";
@@ -38,8 +38,12 @@ final class LauncherService {
             throw new IOException("LaucherCobblemon necesita Java 21 o superior.");
         }
 
+        Path installer = gameDir.resolve("launcher/fabric-installer.jar");
         progress.update("Descargando instalador de Fabric…");
-        downloadIfMissing(FABRIC_INSTALLER_URL, gameDir.resolve("launcher/fabric-installer.jar"));
+        downloadIfMissing(FABRIC_INSTALLER_URL, installer);
+
+        progress.update("Instalando Fabric Loader " + FABRIC_LOADER_VERSION + "…");
+        installFabric(installer, gameDir);
 
         progress.update("Descargando Fabric API " + FABRIC_API_VERSION + "…");
         downloadIfMissing(FABRIC_API_URL,
@@ -50,6 +54,72 @@ final class LauncherService {
                 gameDir.resolve("mods/cobblemon-fabric-" + COBBLEMON_VERSION + "+1.21.1.jar"));
 
         progress.update("Base de Cobblemon preparada.");
+    }
+
+    void launch(Path gameDir, int ramGb, Progress progress) throws IOException, InterruptedException {
+        Objects.requireNonNull(gameDir);
+        if (ramGb < 2 || ramGb > 16) {
+            throw new IOException("La RAM debe estar entre 2 y 16 GB.");
+        }
+
+        Path installer = gameDir.resolve("launcher/fabric-installer.jar");
+        if (!Files.exists(installer)) {
+            throw new IOException("Primero pulsa «Preparar Fabric + Cobblemon».");
+        }
+
+        progress.update("Comprobando instalación de Fabric…");
+        installFabric(installer, gameDir);
+
+        Path launcher = findMinecraftLauncher();
+        if (launcher == null) {
+            throw new IOException("No se encontró el launcher oficial de Minecraft. Inicia sesión una vez en Minecraft Launcher y vuelve a pulsar JUGAR.");
+        }
+
+        progress.update("Abriendo Minecraft Launcher…");
+        new ProcessBuilder(launcher.toString()).start();
+    }
+
+    private void installFabric(Path installer, Path gameDir) throws IOException, InterruptedException {
+        Path versionDir = gameDir.resolve("versions/fabric-loader-" + FABRIC_LOADER_VERSION + "-" + MINECRAFT_VERSION);
+        Path versionJson = versionDir.resolve("fabric-loader-" + FABRIC_LOADER_VERSION + "-" + MINECRAFT_VERSION + ".json");
+        if (Files.exists(versionJson)) return;
+
+        Process process = new ProcessBuilder(
+                javaExecutable(), "-jar", installer.toString(),
+                "client",
+                "-dir", gameDir.toString(),
+                "-mcversion", MINECRAFT_VERSION,
+                "-loader", FABRIC_LOADER_VERSION)
+                .redirectErrorStream(true)
+                .start();
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new IOException("El instalador de Fabric terminó con código " + exitCode + ".");
+        }
+    }
+
+    private Path findMinecraftLauncher() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("win")) {
+            Path local = Path.of(System.getenv().getOrDefault("LOCALAPPDATA", ""), "Programs", "Minecraft Launcher", "MinecraftLauncher.exe");
+            if (Files.isRegularFile(local)) return local;
+            Path store = Path.of(System.getenv().getOrDefault("ProgramFiles", "C:\\Program Files"), "Minecraft Launcher", "MinecraftLauncher.exe");
+            if (Files.isRegularFile(store)) return store;
+        } else if (os.contains("mac")) {
+            Path mac = Path.of("/Applications/Minecraft.app/Contents/MacOS/launcher");
+            if (Files.isRegularFile(mac)) return mac;
+        } else {
+            Path linux = Path.of("/usr/bin/minecraft-launcher");
+            if (Files.isRegularFile(linux)) return linux;
+        }
+        return null;
+    }
+
+    private String javaExecutable() {
+        String javaHome = System.getProperty("java.home");
+        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        return Path.of(javaHome, "bin", windows ? "java.exe" : "java").toString();
     }
 
     private void downloadIfMissing(String url, Path target) throws IOException, InterruptedException {
