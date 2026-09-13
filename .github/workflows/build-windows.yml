@@ -1,0 +1,41 @@
+name: Build Windows launcher
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build JAR
+        run: gradle.bat clean jar
+
+      - name: Create Windows EXE
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $jar = Get-ChildItem -Path build/libs -Filter *.jar | Where-Object { $_.Name -notlike '*-plain.jar' } | Select-Object -First 1
+          if (-not $jar) { throw 'No se encontró el JAR de la aplicación.' }
+          jpackage --type app-image --name LaucherCobblemon --input build/libs --main-jar $jar.Name --main-class es.laucher.cobblemon.LaucherCobblemon --dest dist --app-version 0.1.0 --vendor LaucherCobblemon --description 'Launcher de Cobblemon para Fabric 1.21.1'
+          Compress-Archive -Path dist/LaucherCobblemon -DestinationPath dist/LaucherCobblemon-Windows.zip -Force
+
+      - name: Upload Windows launcher
+        uses: actions/upload-artifact@v4
+        with:
+          name: LaucherCobblemon-Windows
+          path: dist/LaucherCobblemon-Windows.zip
