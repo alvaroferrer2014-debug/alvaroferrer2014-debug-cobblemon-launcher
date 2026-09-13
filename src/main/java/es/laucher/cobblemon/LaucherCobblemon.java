@@ -100,15 +100,17 @@ public final class LaucherCobblemon {
 
         JButton stopServer = new JButton("Detener servidor");
         stopServer.addActionListener(e -> {
-            try {
-                SERVER.stop();
-                status.setText("Solicitud de apagado enviada.");
-            } catch (Exception ex) { showError(frame, ex); }
+            try { SERVER.stop(); status.setText("Solicitud de apagado enviada."); }
+            catch (Exception ex) { showError(frame, ex); }
         });
 
         JPanel actions = new JPanel(new GridLayout(2, 3, 8, 8));
         actions.add(install); actions.add(play); actions.add(prepareServer);
         actions.add(startServer); actions.add(stopServer); actions.add(new JLabel());
+
+        JPanel center = new JPanel(new BorderLayout(10, 10));
+        center.add(settings, BorderLayout.NORTH);
+        center.add(consoleScroll, BorderLayout.CENTER);
 
         JPanel bottom = new JPanel(new BorderLayout(10, 10));
         bottom.add(actions, BorderLayout.NORTH);
@@ -116,9 +118,8 @@ public final class LaucherCobblemon {
         bottom.add(progressBar, BorderLayout.SOUTH);
 
         root.add(header, BorderLayout.NORTH);
-        root.add(settings, BorderLayout.CENTER);
-        root.add(consoleScroll, BorderLayout.SOUTH);
-        root.add(bottom, BorderLayout.AFTER_LAST_LINE);
+        root.add(center, BorderLayout.CENTER);
+        root.add(bottom, BorderLayout.SOUTH);
         frame.setContentPane(root);
         frame.setVisible(true);
     }
